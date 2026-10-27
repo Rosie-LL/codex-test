@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>打地鼠 · 30 秒挑战</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100svh; display: grid; place-items: center; padding: 24px; background: #f2f5f8; color: #29384a; font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    main { width: min(100%, 420px); text-align: center; }
+    h1 { margin: 0 0 10px; font-size: 32px; letter-spacing: 2px; }
+    .intro { margin: 0 0 28px; color: #637389; font-size: 14px; line-height: 1.8; }
+    .stats { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 20px; padding: 18px 24px; background: white; border-radius: 16px; }
+    .stats span { display: block; color: #637389; font-size: 13px; }
+    .stats strong { display: block; margin-top: 4px; font-size: 26px; font-variant-numeric: tabular-nums; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .hole { aspect-ratio: 1; display: grid; place-items: center; padding: 0; border: 0; border-radius: 24px; background: #dfe6ee; color: inherit; font-size: clamp(32px, 10vw, 56px); touch-action: manipulation; user-select: none; }
+    .hole:enabled { cursor: pointer; }
+    .hole:enabled:hover { background: #d5dfeb; }
+    .hole:enabled:active { transform: scale(.96); }
+    .hole.active { background: #d5e5da; }
+    .hole:focus-visible, .action:focus-visible { outline: 3px solid #405f83; outline-offset: 4px; }
+    .action { margin-top: 24px; padding: 13px 30px; border: 0; border-radius: 12px; background: #344f70; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+    .action:hover { background: #263d59; }
+    .status { min-height: 24px; margin: 16px 0 0; color: #637389; font-size: 14px; }
+    dialog { width: min(340px, calc(100% - 48px)); padding: 32px; border: 0; border-radius: 20px; color: #29384a; text-align: center; box-shadow: 0 20px 80px #14263b26; }
+    dialog::backdrop { background: #172a4666; }
+    dialog h2 { margin-top: 0; }
+    dialog p { color: #637389; }
+    #final-score { color: #344f70; font-size: 36px; font-weight: 700; }
+    @media (max-width: 360px) { body { padding: 16px; } .board { gap: 8px; } .hole { border-radius: 18px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>打地鼠</h1>
+    <p class="intro">抓住冒头的小家伙，挑战你的反应速度。<br>击中 +1 分，点空 −1 分。</p>
+    <div class="stats">
+      <div><span>当前分数</span><strong id="score">0</strong></div>
+      <div><span>剩余时间</span><strong><span id="time" style="display:inline;color:inherit;font-size:inherit">30</span> 秒</strong></div>
+    </div>
+    <div class="board" role="group" aria-label="九宫格地鼠洞"></div>
+    <button class="action" id="start" type="button">开始游戏</button>
+    <p class="status" id="status" role="status">准备好了吗？</p>
+  </main>
+  <dialog aria-labelledby="result-title" aria-describedby="result-description">
+    <h2 id="result-title">时间到！</h2>
+    <p id="result-description">本轮最终得分</p>
+    <div id="final-score">0</div>
+    <button class="action" id="restart" type="button" autofocus>重新开始</button>
+  </dialog>
+  <script>
+    const board = document.querySelector('.board');
+    const scoreDisplay = document.querySelector('#score');
+    const timeDisplay = document.querySelector('#time');
+    const startButton = document.querySelector('#start');
+    const statusDisplay = document.querySelector('#status');
+    const result = document.querySelector('dialog');
+    const holes = Array.from({ length: 9 }, (_, index) => {
+      const hole = document.createElement('button');
+      hole.type = 'button';
+      hole.className = 'hole';
+      hole.disabled = true;
+      hole.addEventListener('click', () => hit(index));
+      board.append(hole);
+      return hole;
+    });
+    let score = 0;
+    let active = -1;
+    let playing = false;
+    let deadline = 0;
+    let moleTimer;
+    let clockTimer;
+
+    function renderHoles() {
+      holes.forEach((hole, index) => {
+        const visible = index === active;
+        hole.textContent = visible ? '🐹' : '';
+        hole.classList.toggle('active', visible);
+        hole.setAttribute('aria-label', `第 ${index + 1} 个洞${visible ? '，有地鼠' : '，空洞'}`);
+      });
+    }
+
+    function nextMole() {
+      clearTimeout(moleTimer);
+      if (!playing) return;
+      if (performance.now() >= deadline) return finish();
+      // 从其余八个洞中选择，保证下一只出现在不同位置。
+      const choice = Math.floor(Math.random() * (active < 0 ? 9 : 8));
+      active = active >= 0 && choice >= active ? choice + 1 : choice;
+      renderHoles();
+      moleTimer = setTimeout(nextMole, 1000);
+    }
+
+    function hit(index) {
+      if (!playing) return;
+      if (performance.now() >= deadline) return finish();
+      const success = index === active;
+      score += success ? 1 : -1;
+      scoreDisplay.textContent = score;
+      statusDisplay.textContent = success ? '击中了！+1 分' : '点空了，−1 分';
+      if (success) nextMole();
+    }
+
+    function finish() {
+      if (!playing) return;
+      playing = false;
+      clearTimeout(moleTimer);
+      clearInterval(clockTimer);
+      active = -1;
+      renderHoles();
+      holes.forEach(hole => { hole.disabled = true; });
+      timeDisplay.textContent = '0';
+      startButton.hidden = false;
+      startButton.textContent = '重新开始';
+      statusDisplay.textContent = '本轮已结束，再挑战一次吧。';
+      document.querySelector('#final-score').textContent = score;
+      result.showModal();
+    }
+
+    function updateClock() {
+      const remaining = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
+      timeDisplay.textContent = remaining;
+      if (remaining === 0) finish();
+    }
+
+    function start() {
+      clearTimeout(moleTimer);
+      clearInterval(clockTimer);
+      if (result.open) result.close();
+      score = 0;
+      active = -1;
+      playing = true;
+      deadline = performance.now() + 30000;
+      scoreDisplay.textContent = '0';
+      timeDisplay.textContent = '30';
+      startButton.hidden = true;
+      statusDisplay.textContent = '地鼠出现了，快点击它！';
+      holes.forEach(hole => { hole.disabled = false; });
+      nextMole();
+      holes[active].focus();
+      clockTimer = setInterval(updateClock, 100);
+    }
+
+    renderHoles();
+    startButton.addEventListener('click', start);
+    document.querySelector('#restart').addEventListener('click', start);
+  </script>
+</body>
+</html>
