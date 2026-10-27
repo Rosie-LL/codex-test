@@ -22,6 +22,9 @@
     .hole:focus-visible, .action:focus-visible { outline: 3px solid #405f83; outline-offset: 4px; }
     .action { margin-top: 24px; padding: 13px 30px; border: 0; border-radius: 12px; background: #344f70; color: white; font: inherit; font-weight: 600; cursor: pointer; }
     .action:hover { background: #263d59; }
+    .action.secondary { margin-top: 12px; background: #e7edf4; color: #344f70; }
+    .action.secondary:hover { background: #d9e3ee; }
+    .result-actions { display: grid; }
     .status { min-height: 24px; margin: 16px 0 0; color: #637389; font-size: 14px; }
     dialog { width: min(340px, calc(100% - 48px)); padding: 32px; border: 0; border-radius: 20px; color: #29384a; text-align: center; box-shadow: 0 20px 80px #14263b26; }
     dialog::backdrop { background: #172a4666; }
@@ -47,7 +50,10 @@
     <h2 id="result-title">时间到！</h2>
     <p id="result-description">本轮最终得分</p>
     <div id="final-score">0</div>
-    <button class="action" id="restart" type="button" autofocus>重新开始</button>
+    <div class="result-actions">
+      <button class="action" id="restart" type="button" autofocus>重新开始</button>
+      <button class="action secondary" id="home" type="button">回到主界面</button>
+    </div>
   </dialog>
   <script>
     const board = document.querySelector('.board');
@@ -142,9 +148,31 @@
       clockTimer = setInterval(updateClock, 100);
     }
 
+    function returnHome() {
+      playing = false;
+      clearTimeout(moleTimer);
+      clearInterval(clockTimer);
+      if (result.open) result.close();
+      score = 0;
+      active = -1;
+      renderHoles();
+      holes.forEach(hole => { hole.disabled = true; });
+      scoreDisplay.textContent = '0';
+      timeDisplay.textContent = '30';
+      startButton.hidden = false;
+      startButton.textContent = '开始游戏';
+      statusDisplay.textContent = '准备好了吗？';
+      startButton.focus();
+    }
+
     renderHoles();
     startButton.addEventListener('click', start);
     document.querySelector('#restart').addEventListener('click', start);
+    document.querySelector('#home').addEventListener('click', returnHome);
+    result.addEventListener('cancel', event => {
+      event.preventDefault();
+      returnHome();
+    });
   </script>
 </body>
 </html>
